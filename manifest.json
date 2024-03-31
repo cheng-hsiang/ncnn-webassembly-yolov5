@@ -5,7 +5,8 @@
     {
       "src": "icons/1280.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "57x57"
     }
-  ]
+  ],
+  "scope": "https://cheng-hsiang.github.io/ncnn-webassembly-yolov5/"
 }
