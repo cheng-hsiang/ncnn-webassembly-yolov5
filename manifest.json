@@ -58,6 +58,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "scope": "https://cheng-hsiang.github.io/ncnn-webassembly-yolov5/index.html"
+  ]
 }
