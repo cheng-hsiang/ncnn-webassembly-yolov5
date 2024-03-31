@@ -1,227 +1,238 @@
 <html lang="en">
-
-<head>
-    <meta charset="utf-8">
+  <head>
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <meta name=”apple-mobile-web-app-capable” content=”yes”>
-    <link rel="manifest" href="manifest.json">
+    <meta name="”apple-mobile-web-app-capable”" content="”yes”" />
+    <link rel="manifest" href="manifest.json" />
     <title>ncnn webassembly yolov5</title>
     <style>
-        video {
-/*             position: absolute; */
-/*             visibility: hidden; */
-        }
-        canvas {
-            border: 1px solid black;
-        }
+      video {
+        /*             position: absolute; */
+        /*             visibility: hidden; */
+      }
+      canvas {
+        border: 1px solid black;
+      }
     </style>
+  </head>
 
-</head>
-
-<body>
+  <body>
     <div>
-        <h1>ncnn webassembly yolov5</h1>
-        <div>
-            <button disabled id="switch-camera-btn" style="height:48px">Switch Camera</button>
-        </div>
-        <div>
-            <canvas id="canvas" width="640"></canvas>
-        </div>
-        <video id="video" playsinline autoplay></video>
+      <h1>ncnn webassembly yolov5</h1>
+      <div>
+        <button disabled id="switch-camera-btn" style="height: 48px">
+          Switch Camera
+        </button>
+      </div>
+      <div>
+        <canvas id="canvas" width="640"></canvas>
+      </div>
+      <video id="video" playsinline autoplay></video>
     </div>
 
     <script src="wasmFeatureDetect.js"></script>
 
-    <script type='text/javascript'>
-        // if("serviceWorker" in navigator) {
-        //     navigator.serviceWorker.register("service-worker.js");
-        // }
-
-        var Module = {};
-
-        var has_simd;
-        var has_threads;
-
-        var wasmModuleLoaded = false;
-        var wasmModuleLoadedCallbacks = [];
-
-        Module.onRuntimeInitialized = function() {
-            wasmModuleLoaded = true;
-            for (var i = 0; i < wasmModuleLoadedCallbacks.length; i++) {
-                wasmModuleLoadedCallbacks[i]();
-            }
-        }
-
-        wasmFeatureDetect.simd().then(simdSupported => {
-            has_simd = simdSupported;
-
-            wasmFeatureDetect.threads().then(threadsSupported => {
-                has_threads = threadsSupported;
-
-                if (has_simd)
-                {
-                    if (has_threads)
-                    {
-                        yolov5_module_name = 'yolov5-simd-threads';
-                    }
-                    else
-                    {
-                        yolov5_module_name = 'yolov5-simd';
-                    }
-                }
-                else
-                {
-                    if (has_threads)
-                    {
-                        yolov5_module_name = 'yolov5-threads';
-                    }
-                    else
-                    {
-                        yolov5_module_name = 'yolov5-basic';
-                    }
-                }
-
-                console.log('load ' + yolov5_module_name);
-
-                var yolov5wasm = yolov5_module_name + '.wasm';
-                var yolov5js = yolov5_module_name + '.js';
-
-                fetch(yolov5wasm)
-                    .then(response => response.arrayBuffer())
-                    .then(buffer => {
-                        Module.wasmBinary = buffer;
-                        var script = document.createElement('script');
-                        script.src = yolov5js;
-                        script.onload = function() {
-                            console.log('Emscripten boilerplate loaded.');
-                        }
-                        document.body.appendChild(script);
-                    });
-
+    <script type="text/javascript">
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw-my.js", { scope: "/" })
+            .then(function (registration) {
+              // 注册成功
+              console.log(
+                "ServiceWorker registration successful with scope: ",
+                registration.scope
+              );
+            })
+            .catch(function (err) {
+              // 注册失败:(
+              console.log("ServiceWorker registration failed: ", err);
             });
         });
+      }
 
-        var shouldFaceUser = true;
-        var stream = null;
-        var w = 640;
-        var h = 480;
+      var Module = {};
 
-        var dst = null;
-        var resultarray = null;
-        var resultbuffer = null;
-        window.addEventListener('DOMContentLoaded', function() {
-            var isStreaming = false;
-            switchcamerabtn = document.getElementById('switch-camera-btn');
-            video = document.getElementById('video');
-            canvas = document.getElementById('canvas');
-            ctx = canvas.getContext('2d');
+      var has_simd;
+      var has_threads;
 
-            // Wait until the video stream canvas play
-            video.addEventListener('canplay', function(e) {
-                if (!isStreaming) {
-                    // videoWidth isn't always set correctly in all browsers
-                    if (video.videoWidth > 0) h = video.videoHeight / (video.videoWidth / w);
-                    canvas.setAttribute('width', w);
-                    canvas.setAttribute('height', h);
-                    isStreaming = true;
-                }
-            }, false);
+      var wasmModuleLoaded = false;
+      var wasmModuleLoadedCallbacks = [];
 
-            // Wait for the video to start to play
-            video.addEventListener('play', function() {
-                //Setup image memory
-                var id = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                var d = id.data;
+      Module.onRuntimeInitialized = function () {
+        wasmModuleLoaded = true;
+        for (var i = 0; i < wasmModuleLoadedCallbacks.length; i++) {
+          wasmModuleLoadedCallbacks[i]();
+        }
+      };
 
-                if (wasmModuleLoaded) {
-                    mallocAndCallSFilter();
-                } else {
-                    wasmModuleLoadedCallbacks.push(mallocAndCallSFilter);
-                }
+      wasmFeatureDetect.simd().then((simdSupported) => {
+        has_simd = simdSupported;
 
-                function mallocAndCallSFilter() {
-                    if (dst != null)
-                    {
-                        _free(dst);
-                        dst = null;
-                    }
+        wasmFeatureDetect.threads().then((threadsSupported) => {
+          has_threads = threadsSupported;
 
-                    dst = _malloc(d.length);
+          if (has_simd) {
+            if (has_threads) {
+              yolov5_module_name = "yolov5-simd-threads";
+            } else {
+              yolov5_module_name = "yolov5-simd";
+            }
+          } else {
+            if (has_threads) {
+              yolov5_module_name = "yolov5-threads";
+            } else {
+              yolov5_module_name = "yolov5-basic";
+            }
+          }
 
-                    //console.log("What " + d.length);
+          console.log("load " + yolov5_module_name);
 
-                    sFilter();
-                }
+          var yolov5wasm = yolov5_module_name + ".wasm";
+          var yolov5js = yolov5_module_name + ".js";
+
+          fetch(yolov5wasm)
+            .then((response) => response.arrayBuffer())
+            .then((buffer) => {
+              Module.wasmBinary = buffer;
+              var script = document.createElement("script");
+              script.src = yolov5js;
+              script.onload = function () {
+                console.log("Emscripten boilerplate loaded.");
+              };
+              document.body.appendChild(script);
             });
+        });
+      });
 
-            // check whether we can use facingMode
-            var supports = navigator.mediaDevices.getSupportedConstraints();
-            if (supports['facingMode'] === true) {
-                switchcamerabtn.disabled = false;
+      var shouldFaceUser = true;
+      var stream = null;
+      var w = 640;
+      var h = 480;
+
+      var dst = null;
+      var resultarray = null;
+      var resultbuffer = null;
+      window.addEventListener("DOMContentLoaded", function () {
+        var isStreaming = false;
+        switchcamerabtn = document.getElementById("switch-camera-btn");
+        video = document.getElementById("video");
+        canvas = document.getElementById("canvas");
+        ctx = canvas.getContext("2d");
+
+        // Wait until the video stream canvas play
+        video.addEventListener(
+          "canplay",
+          function (e) {
+            if (!isStreaming) {
+              // videoWidth isn't always set correctly in all browsers
+              if (video.videoWidth > 0)
+                h = video.videoHeight / (video.videoWidth / w);
+              canvas.setAttribute("width", w);
+              canvas.setAttribute("height", h);
+              isStreaming = true;
+            }
+          },
+          false
+        );
+
+        // Wait for the video to start to play
+        video.addEventListener("play", function () {
+          //Setup image memory
+          var id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var d = id.data;
+
+          if (wasmModuleLoaded) {
+            mallocAndCallSFilter();
+          } else {
+            wasmModuleLoadedCallbacks.push(mallocAndCallSFilter);
+          }
+
+          function mallocAndCallSFilter() {
+            if (dst != null) {
+              _free(dst);
+              dst = null;
             }
 
-            switchcamerabtn.addEventListener('click', function() {
-                if (stream == null)
-                    return
+            dst = _malloc(d.length);
 
-                stream.getTracks().forEach(t => {
-                    t.stop();
-                });
+            //console.log("What " + d.length);
 
-                shouldFaceUser = !shouldFaceUser;
-                capture();
-            });
-
-            capture();
+            sFilter();
+          }
         });
 
-        function capture() {
-            var constraints = { audio: false, video: { width: 640, height: 480, facingMode: shouldFaceUser ? 'user' : 'environment' } };
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(function(mediaStream) {
-                    var video = document.querySelector('video');
-                    stream = mediaStream;
-                    video.srcObject = mediaStream;
-                    video.onloadedmetadata = function(e) {
-                        video.play();
-                    };
-                })
-                .catch(function(err) {
-                    console.log(err.message);
-                });
+        // check whether we can use facingMode
+        var supports = navigator.mediaDevices.getSupportedConstraints();
+        if (supports["facingMode"] === true) {
+          switchcamerabtn.disabled = false;
         }
 
+        switchcamerabtn.addEventListener("click", function () {
+          if (stream == null) return;
 
-        function ncnn_yolov5() {
-            var canvas = document.getElementById('canvas');
-            var ctx = canvas.getContext('2d');
+          stream.getTracks().forEach((t) => {
+            t.stop();
+          });
 
-            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            var data = imageData.data;
+          shouldFaceUser = !shouldFaceUser;
+          capture();
+        });
 
-            HEAPU8.set(data, dst);
+        capture();
+      });
 
-            _yolov5_ncnn(dst, canvas.width, canvas.height);
+      function capture() {
+        var constraints = {
+          audio: false,
+          video: {
+            width: 640,
+            height: 480,
+            facingMode: shouldFaceUser ? "user" : "environment",
+          },
+        };
+        navigator.mediaDevices
+          .getUserMedia(constraints)
+          .then(function (mediaStream) {
+            var video = document.querySelector("video");
+            stream = mediaStream;
+            video.srcObject = mediaStream;
+            video.onloadedmetadata = function (e) {
+              video.play();
+            };
+          })
+          .catch(function (err) {
+            console.log(err.message);
+          });
+      }
 
-            var result = HEAPU8.subarray(dst, dst + data.length);
-            imageData.data.set(result);
-            ctx.putImageData(imageData, 0, 0);
-        }
+      function ncnn_yolov5() {
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext("2d");
 
-        //Request Animation Frame function
-        var sFilter = function() {
-            if (video.paused || video.ended) return;
+        var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var data = imageData.data;
 
-            ctx.fillRect(0, 0, w, h);
-            ctx.drawImage(video, 0, 0, w, h);
+        HEAPU8.set(data, dst);
 
-            ncnn_yolov5();
+        _yolov5_ncnn(dst, canvas.width, canvas.height);
 
-            window.requestAnimationFrame(sFilter);
-        }
+        var result = HEAPU8.subarray(dst, dst + data.length);
+        imageData.data.set(result);
+        ctx.putImageData(imageData, 0, 0);
+      }
 
+      //Request Animation Frame function
+      var sFilter = function () {
+        if (video.paused || video.ended) return;
+
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(video, 0, 0, w, h);
+
+        ncnn_yolov5();
+
+        window.requestAnimationFrame(sFilter);
+      };
     </script>
-
-</body>
-
+  </body>
 </html>
