@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width" />
+    <link rel="manifest" href="manifest.json">
     <title>ncnn webassembly yolov5</title>
     <style>
         video {
@@ -31,6 +32,10 @@
     <script src="wasmFeatureDetect.js"></script>
 
     <script type='text/javascript'>
+        // if("serviceWorker" in navigator) {
+        //     navigator.serviceWorker.register("service-worker.js");
+        // }
+
         var Module = {};
 
         var has_simd;
